@@ -1,7 +1,10 @@
 
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
 import { auth } from '../firebase.js';
 
 function Login() {
@@ -10,20 +13,85 @@ function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   async function handleLogin(e) {
     e.preventDefault();
     setError('');
+    setSuccess('');
+
+    if (!auth) {
+      setError('Firebase is not configured. Please check your settings.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate('/');
+      await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password
+      );
+
+      setSuccess('Logged in successfully! Redirecting to homepage...');
+
+      window.setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 1500);
     } catch (err) {
-      setError('Login failed. Check your email and password.');
+      
+  console.error("Firebase login error:", err.code, err.message);
+  setError(`${err.code}: ${err.message}`);
+} finally {
+  setLoading(false);
+}
+      console.error('Login error:', err.code, err.message);
+
+      if (
+        err.code === 'auth/invalid-credential' ||
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/user-not-found'
+      ) {
+        setError('Incorrect email or password. Please try again.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many attempts. Please try again later.');
+      } else {
+        setError(err.message || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setError('');
+    setSuccess('');
+
+    if (!auth) {
+      setError('Firebase is not configured.');
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('Enter your registered email address first.');
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setSuccess('Password reset email sent. Check your inbox and spam folder.');
+    } catch (err) {
+      console.error('Password reset error:', err.code, err.message);
+      setError('Could not send reset email. Check the email and try again.');
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -110,7 +178,7 @@ function Login() {
           transition: background 0.2s, transform 0.2s;
         }
 
-        .account-button:hover {
+        .account-button:hover:not(:disabled) {
           background: #1b5a48;
           transform: translateY(-1px);
         }
@@ -120,13 +188,34 @@ function Login() {
           cursor: wait;
         }
 
-        .account-error {
+        .account-error,
+        .account-success {
           padding: 11px;
           margin-top: 8px;
           border-radius: 8px;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .account-error {
           background: #fff0f0;
           color: #a32020;
+        }
+
+        .account-success {
+          background: #e8f7ed;
+          color: #176348;
+        }
+
+        .forgot-password {
+          align-self: flex-end;
+          padding: 2px 0;
+          border: none;
+          background: transparent;
+          color: #176348;
           font-size: 14px;
+          cursor: pointer;
+          text-decoration: underline;
         }
 
         .account-switch {
@@ -160,6 +249,7 @@ function Login() {
       <main className="account-page">
         <section className="account-card">
           <h1>Welcome Back</h1>
+
           <p className="account-subtitle">
             Log in to your DEV@Deakin account.
           </p>
@@ -187,16 +277,31 @@ function Login() {
               required
             />
 
+            <button
+              className="forgot-password"
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={resetLoading || loading}
+            >
+              {resetLoading ? 'Sending email...' : 'Forgot Password?'}
+            </button>
+
             {error && (
               <div className="account-error" role="alert">
                 {error}
               </div>
             )}
 
+            {success && (
+              <div className="account-success" role="status">
+                {success}
+              </div>
+            )}
+
             <button
               className="account-button"
               type="submit"
-              disabled={loading}
+              disabled={loading || resetLoading}
             >
               {loading ? 'Logging in...' : 'Log In'}
             </button>
