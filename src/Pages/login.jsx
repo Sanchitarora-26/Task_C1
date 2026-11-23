@@ -42,12 +42,6 @@ function Login() {
         navigate('/', { replace: true });
       }, 1500);
     } catch (err) {
-      
-  console.error("Firebase login error:", err.code, err.message);
-  setError(`${err.code}: ${err.message}`);
-} finally {
-  setLoading(false);
-}
       console.error('Login error:', err.code, err.message);
 
       if (

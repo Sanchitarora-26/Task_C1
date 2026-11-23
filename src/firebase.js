@@ -26,3 +26,4 @@ const app = hasFirebaseConfig
 
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
+
